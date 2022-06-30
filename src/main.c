@@ -8,7 +8,7 @@
 
 
 //ADC Channels
-#if CONFIG_IDF_TARGET_ESP32
+#if CONFIG_IDF_TARGET_ESP32 //ESP32
 #define ADC1_EXAMPLE_CHAN0          ADC1_CHANNEL_6  //GPIO34
 #define ADC2_EXAMPLE_CHAN0          ADC2_CHANNEL_0 //GPIO4
 static const char *TAG_CH[2][10] = {{"ADC1_CH6"}, {"ADC2_CH0"}};
