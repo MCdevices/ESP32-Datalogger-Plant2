@@ -35,3 +35,8 @@ int32_t map(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t 
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+void deep_sleep_mode(uint8_t time_sleep_s){
+    ESP_LOGI(TAG, "Entering deep sleep for %d seconds", time_sleep_s);
+    esp_wifi_stop(); //turn off wifi 
+    esp_deep_sleep(1000000LL * time_sleep_s);
+}
