@@ -34,20 +34,19 @@
 #include "esp_sleep.h"
 #include "nvs_flash.h"
 #include "esp_sntp.h"
-//#include "esp_event_loop.h"
 #include "esp_event.h"
 
-
 //MY INCLUDES
-#include "DataRec_config/DataRec_config.h"
-//#include "wifi_config_time.h"
+#include "board_config/board_config.h"
+
 
 // ************************************************
 // ***************** DEFINITIONS ******************
 #define ADC2_CHAN0                  ADC2_CHANNEL_0              //ADC Channel GPIO4  
 #define adc_atten                   ADC_ATTEN_DB_11             //ADC Attenuation       
 #define ADC_EXAMPLE_CALI_SCHEME     ESP_ADC_CAL_VAL_EFUSE_VREF  //ADC Calibration
-#define PIN_LED                     2
+#define LED_PIN                     2
+#define RELAY_PIN                   5
 
 //MAX-MIN VALUE CALIBRATION
 #define MAX_VALUE 4095 //sensor in the air
@@ -59,10 +58,10 @@
 #define EXAMPLE_WIFI_PASS "matteocava"
 
 
-
 // ************************************************
 // ****************** VARIABLE ********************
 extern char *TAG;
+extern char *TAG1;
 esp_adc_cal_characteristics_t adc_chars;
 EventGroupHandle_t wifi_event_group;
 time_t now;
