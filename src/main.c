@@ -2,7 +2,7 @@
 /*<                  MCDEVICES                  >*/
 /*************************************************/
 /*<             AUTOMATED IRRIGATION            >*/
-/*<                version: 1.2.0               >*/               
+/*<                version: 1.2.1               >*/               
 /*************************************************/
 
 /*
@@ -40,22 +40,24 @@ static const adc_channel_t channel = ADC_CHANNEL_6;     //GPIO34 if ADC1, GPIO14
 static const adc_bits_width_t width = ADC_WIDTH_BIT_12;
 static const adc_atten_t atten = ADC_ATTEN_DB_11;
 static const adc_unit_t unit = ADC_UNIT_1;
-RTC_DATA_ATTR static int num_samp = 0;
 
-// time_t now;
-// struct tm timeinfo;
+
 char *TAG1 = "WIFI";
 sdmmc_card_t *card;
 esp_err_t ret = ESP_OK;
-esp_err_t event_handler(void *ctx, system_event_t *event);
-// First create a file.
-const char *file_data = MOUNT_POINT"/data.txt";
-// Read a line from file
-char line[64];
+const char mount_point[] = MOUNT_POINT;
+sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+FILE *file;
+
+char *file_data = MOUNT_POINT"/data.txt";
 char strftime_buf[64];
 
-uint32_t voltage;
+
+RTC_DATA_ATTR static int num_samp = 0;
 uint32_t adc_reading = 0;
+int32_t percentuale = 0;
+uint32_t voltage;
+
 
 void get_time_date(TimerHandle_t xTimer){   //FOR DEBUGGING ONLY!!!
     time(&now);
@@ -75,65 +77,7 @@ void get_time_date(TimerHandle_t xTimer){   //FOR DEBUGGING ONLY!!!
     ESP_LOGI(TAG1, "Date/time in Italy is: %s", strftime_buf);
 }
 
-
-static void print_char_val_type(esp_adc_cal_value_t val_type)
-{
-    if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-        printf("Characterized using Two Point Value\n");
-    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-        printf("Characterized using eFuse Vref\n");
-    } else {
-        printf("Characterized using Default Vref\n");
-    }
-}
-
-static void adc_reading_thread(TimerHandle_t xTimer){
-    //Check if Two Point or Vref are burned into eFuse
-
-    //Configure ADC
-    if (unit == ADC_UNIT_1) {
-        adc1_config_width(width);
-        adc1_config_channel_atten(channel, atten);
-    } else {
-        adc2_config_channel_atten((adc2_channel_t)channel, atten);
-    }
-    //Characterize ADC
-    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
-    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(unit, atten, width, DEFAULT_VREF, adc_chars);
-    //print_char_val_type(val_type); <=== FOR DEBUG
-
-    //Multisampling
-    for (int i = 0; i < NO_OF_SAMPLES; i++) {
-        if (unit == ADC_UNIT_1) {
-            adc_reading += adc1_get_raw((adc1_channel_t)channel);
-        }
-    }
-    adc_reading /= NO_OF_SAMPLES;
-    //Convert adc_reading to voltage in mV
-    voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
-    printf("Raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-}
-
-static void create_timers(void){
-    /*FREERTOS TIMER CREATE*/
-    read_from_adc_handle_id = xTimerCreate("SCHED",                //Timer Name
-                                           pdMS_TO_TICKS(1000),    //Period in ticks
-                                           pdTRUE,                 //Auto reload
-                                           NULL,                   //timer ID
-                                           &adc_reading_thread);   //Callback Function
-    
-    /* Error checking */
-    if (NULL == read_from_adc_handle_id) 
-    {
-        ESP_LOGW(TAG, "ESP32_ERROR_MEM");
-    }
-
-    xTimerStart(read_from_adc_handle_id,0);
-}
-
-static void sd_card(void){
+static void sd_card_init(void){
     esp_err_t ret;
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
 #ifdef CONFIG_EXAMPLE_FORMAT_IF_MOUNT_FAILED
@@ -144,12 +88,9 @@ static void sd_card(void){
         .max_files = 5,
         .allocation_unit_size = 16 * 1024
     };
-
-    const char mount_point[] = MOUNT_POINT;
     ESP_LOGI(TAG, "Initializing SD card");
     ESP_LOGI(TAG, "Using SPI peripheral");
 
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = PIN_NUM_MOSI,
         .miso_io_num = PIN_NUM_MISO,
@@ -181,52 +122,94 @@ static void sd_card(void){
         return;
     }
     ESP_LOGI(TAG, "Filesystem mounted");
+}
 
-    // Card has been initialized, print its properties
-    sdmmc_card_print_info(stdout, card);
-    ESP_LOGI(TAG, "Opening file %s", file_data);
-    FILE *f = fopen(file_data, "w");
-    if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file for writing");
-        return;
-    }
-    fprintf(f, "MATTEO %s!, Date/time in Italy is: %s \n", card->cid.name,strftime_buf);
-    fclose(f);
-    ESP_LOGI(TAG, "File written");
-
-    // Open file for reading
-    ESP_LOGI(TAG, "Reading file %s", file_data);
-    f = fopen(file_data, "r");
-    if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file for reading");
-        return;
-    }
-
-    fgets(line, sizeof(line), f);
-    fclose(f);
-
-    // Strip newline
-    char *pos = strchr(line, '\n');
-    if (pos) {
-        *pos = '\0';
-    }
-    ESP_LOGI(TAG, "Read from file: '%s'", line);
-
-    // All done, unmount partition and disable SPI peripheral
-    esp_vfs_fat_sdcard_unmount(mount_point, card);
-    ESP_LOGI(TAG, "Card unmounted");
-
+void sdcard_spi_stop(void){
     //deinitialize the bus after all devices are removed
     spi_bus_free(host.slot);
 }
+
+static void print_char_val_type(esp_adc_cal_value_t val_type)
+{
+    if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+        printf("Characterized using Two Point Value\n");
+    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+        printf("Characterized using eFuse Vref\n");
+    } else {
+        printf("Characterized using Default Vref\n");
+    }
+}
+
+
+static void start_irrig(void *pvParameters){
+    xTimerStop(read_from_adc_handle_id,0);
+    printf("\n\nIRRIGATION STARTED!!! for: %dms\n\n",TIME_FOR_IRRIG);
+    gpio_set_level(RELAY_PIN,1);
+    //write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
+    //sdcard_spi_stop();
+    vTaskDelay(pdMS_TO_TICKS(TIME_FOR_IRRIG));
+    gpio_set_level(RELAY_PIN,0);
+    xTimerStart(read_from_adc_handle_id,0);
+}
+
+static void adc_reading_thread(TimerHandle_t xTimer){
+    num_samp++;
+    //Configure ADC
+    if (unit == ADC_UNIT_1) {
+        adc1_config_width(width);
+        adc1_config_channel_atten(channel, atten);
+    } else {
+        adc2_config_channel_atten((adc2_channel_t)channel, atten);
+    }
+    //Characterize ADC
+    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(unit, atten, width, DEFAULT_VREF, adc_chars);
+    print_char_val_type(val_type); //<=== FOR DEBUG
+
+    for (int i = 0; i < NO_OF_SAMPLES; i++) {
+        if (unit == ADC_UNIT_1) {
+            adc_reading += adc1_get_raw((adc1_channel_t)channel);
+        }
+    }
+    adc_reading /= NO_OF_SAMPLES;
+    //Convert adc_reading to voltage in mV
+    voltage = esp_adc_cal_raw_to_voltage(adc_reading, adc_chars);
+    percentuale = map(adc_reading,MIN_VALUE,MAX_VALUE,100,0);
+    if (percentuale < 0){
+        percentuale = 0;    //forzo la variabile a zero se negativa
+    }
+    if (percentuale > 5 && percentuale < 35){
+        start_irrig(NULL);
+    }
+    printf("Raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
+    printf("percentuale di acqua nel terreno: %d%%\n",percentuale);
+}
+
+static void create_timers(void){
+    /*FREERTOS TIMER CREATE*/
+    read_from_adc_handle_id =       xTimerCreate("SCHED",                //Timer Name
+                                                pdMS_TO_TICKS(1000),    //Period in ticks
+                                                pdTRUE,                 //Auto reload
+                                                NULL,                   //timer ID
+                                                &adc_reading_thread);   //Callback Function
+    
+    /* Error checking */
+    if (NULL == read_from_adc_handle_id)
+    {
+        ESP_LOGW(TAG, "ESP32_ERROR_MEM");
+    }
+
+    xTimerStart(read_from_adc_handle_id,0);
+}
+
 
 void app_main(void){
     //initialize.
     pin_config();
     get_time_date(NULL);
     check_efuse();
-    sd_card();
-    //create_timers();
+    sd_card_init();
+    create_timers();
 
     while (1) {
         vTaskDelay(5); //for watchdog timer only (WDT) 
