@@ -7,20 +7,7 @@
 	],
 	"settings": {
 		"files.associations": {
-			"map": "c",
-			"math.h": "c",
-			"time.h": "c",
-			"stdlib.h": "c",
-			"main.h": "c",
-			"timers.h": "c",
-			"freertos.h": "c",
-			"freertosconfig.h": "c",
-			"protocol_examples_common.h": "c",
-			"gpio.h": "c",
-			"event_groups.h": "c",
-			"esp_adc_cal.h": "c",
-			"esp_sleep.h": "c",
-			"wifi_config.h": "c"
+			"*.ipp": "c"
 		}
 	}
 }
