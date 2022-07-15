@@ -50,25 +50,26 @@
 #define LED_PIN                     21 //GPIO 21 on LilyGO/T8
 #define RELAY_PIN                   2   //GPIO 5
 #define SLEEP_TIME                  144*600 //144*600 = 86400 = 24H //il micro si risveglia ogni 24H
-#define DEFAULT_VREF    1100        //Use adc2_vref_to_gpio() to obtain a better estimate
-#define NO_OF_SAMPLES   64          //Multisampling
+#define DEFAULT_VREF                1100        //Use adc2_vref_to_gpio() to obtain a better estimate
+#define NO_OF_SAMPLES               64          //Multisampling
 
 //MAX-MIN VALUE CALIBRATION
-#define MAX_VALUE 2682  //sensor in the air
-#define MIN_VALUE 2329  //sensor in the water "extreme condition"
-#define NUM_MAX_SAMPLE 10
+#define MAX_VALUE                   2681  //sensor in the air
+#define MIN_VALUE                   984  //sensor in the water "extreme condition"
+#define NUM_MAX_SAMPLE              20
+#define TIME_FOR_IRRIG              5000 //in ms
 
 //WIFI
-#define EXAMPLE_WIFI_SSID "Xperia XZ1_ad70"
-#define EXAMPLE_WIFI_PASS "matteocava"
+#define EXAMPLE_WIFI_SSID           "Xperia XZ1_ad70"
+#define EXAMPLE_WIFI_PASS           "matteocava"
 
 //SDCARD SPI
-#define MOUNT_POINT "/sdcard"
-#define SPI_DMA_CHAN    1
-#define PIN_NUM_MISO    2
-#define PIN_NUM_MOSI    15
-#define PIN_NUM_CLK     14
-#define PIN_NUM_CS      13
+#define MOUNT_POINT                 "/sdcard"
+#define SPI_DMA_CHAN                1
+#define PIN_NUM_MISO                2
+#define PIN_NUM_MOSI                15
+#define PIN_NUM_CLK                 14
+#define PIN_NUM_CS                  13
 
 // ************************************************
 // ****************** VARIABLE ********************
