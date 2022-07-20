@@ -24,6 +24,8 @@ NOTE:
     (4)inserire le librerie per scrivere il tempo e il giorno in cui viene 
     effettuata l'irrigazione
     (solo se l'umidita del terreno e scesa sotto ad una determinata soglia)
+
+    (5)Ottimizzare la scrittura su uSD
 */
 
 #include "main.h"
