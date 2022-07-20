@@ -2,7 +2,7 @@
 /*<                  MCDEVICES                  >*/
 /*************************************************/
 /*<             AUTOMATED IRRIGATION            >*/
-/*<                version: 1.2.1               >*/               
+/*<                version: 1.2.2               >*/               
 /*************************************************/
 
 /*
@@ -24,14 +24,12 @@ NOTE:
     (4)inserire le librerie per scrivere il tempo e il giorno in cui viene 
     effettuata l'irrigazione
     (solo se l'umidita del terreno e scesa sotto ad una determinata soglia)
+
+    (5)Ottimizzare la scrittura su uSD
 */
 
 #include "main.h"
 #include "wifi_connect.h"
-
-// ************************************************
-// **************** TIMER HANDLE ******************
-static TimerHandle_t read_from_adc_handle_id;
 
 // ************************************************
 // ***************** VARIABLES ********************
@@ -40,7 +38,6 @@ static const adc_channel_t channel = ADC_CHANNEL_6;     //GPIO34 if ADC1, GPIO14
 static const adc_bits_width_t width = ADC_WIDTH_BIT_12;
 static const adc_atten_t atten = ADC_ATTEN_DB_11;
 static const adc_unit_t unit = ADC_UNIT_1;
-
 
 char *TAG1 = "WIFI";
 sdmmc_card_t *card;
@@ -52,8 +49,8 @@ FILE *file;
 char *file_data = MOUNT_POINT"/data.txt";
 char strftime_buf[64];
 
-
-RTC_DATA_ATTR static int num_samp = 0;
+RTC_DATA_ATTR static int num_samp_from_sleep = 0;
+uint32_t num_samples = 0;
 uint32_t adc_reading = 0;
 int32_t percentuale = 0;
 uint32_t voltage;
@@ -122,6 +119,7 @@ static void sd_card_init(void){
         return;
     }
     ESP_LOGI(TAG, "Filesystem mounted");
+    //write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
 }
 
 void sdcard_spi_stop(void){
@@ -145,15 +143,15 @@ static void start_irrig(void *pvParameters){
     xTimerStop(read_from_adc_handle_id,0);
     printf("\n\nIRRIGATION STARTED!!! for: %dms\n\n",TIME_FOR_IRRIG);
     gpio_set_level(RELAY_PIN,1);
-    //write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
-    //sdcard_spi_stop();
     vTaskDelay(pdMS_TO_TICKS(TIME_FOR_IRRIG));
+    //write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
+    //sdcard_spi_stop(); //stackoverflow error
     gpio_set_level(RELAY_PIN,0);
     xTimerStart(read_from_adc_handle_id,0);
 }
 
 static void adc_reading_thread(TimerHandle_t xTimer){
-    num_samp++;
+    num_samp_from_sleep++;
     //Configure ADC
     if (unit == ADC_UNIT_1) {
         adc1_config_width(width);
@@ -181,8 +179,15 @@ static void adc_reading_thread(TimerHandle_t xTimer){
     if (percentuale > 5 && percentuale < 35){
         start_irrig(NULL);
     }
+    if (num_samples >= NUM_MAX_SAMPLE){
+        num_samples = 0;
+        deep_sleep_mode(TIME_SLEEP); //for now 10s
+    }
+    printf("Numero campioni: %d",num_samples);
     printf("Raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
     printf("percentuale di acqua nel terreno: %d%%\n",percentuale);
+    append_data_sd_card(card,file,file_data,percentuale,MOUNT_POINT);
+    num_samples++;
 }
 
 static void create_timers(void){
@@ -206,11 +211,13 @@ static void create_timers(void){
 void app_main(void){
     //initialize.
     pin_config();
-    get_time_date(NULL);
     check_efuse();
     sd_card_init();
+    //Card has been initialized, print its properties
+    //sdmmc_card_print_info(stdout, card);
+    get_time_date(NULL);
     create_timers();
-
+    write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
     while (1) {
         vTaskDelay(5); //for watchdog timer only (WDT) 
     }
