@@ -37,31 +37,23 @@ void spi_disable(sdmmc_card_t *card,char mount_point[]){
     ESP_LOGI(TAG2, "Card unmounted");
 }
 
-void write_sd_card(sdmmc_card_t *card, FILE *file_open, char *file_data_write, char buf[],char mount_point[]){
+void write_sd_card(FILE *file_to_open, char *file_name ,char mount_point[], char bufTime[], int32_t perc, uint32_t num_samp){
     xTimerStop(read_from_adc_handle_id,0);
-    ESP_LOGI(TAG2, "Opening file %s", file_data_write);
-    file_open = fopen(file_data_write, "a");
-    if (file_open == NULL) {
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+
+    ESP_LOGI(TAG2, "Opening file %s", file_name);
+    file_to_open = fopen(file_name, "a");
+    if (file_to_open == NULL) {
         ESP_LOGE(TAG2, "Failed to open file for writing");
         return;
     }
-    fprintf(file_open, "AUTOMATED IRRIGATION!\nDate/time in Italy is: %s \n",buf);
-    fclose(file_open);
+    fprintf(file_to_open, "Date and time: %d-%02d-%02d %02d:%02d:%02d	percentuale acqua: %d%%	Numero campioni: %d\n",tm.tm_mday, tm.tm_mon + 1,tm.tm_year + 1900, tm.tm_hour, tm.tm_min, tm.tm_sec, perc, num_samp);
+    fclose(file_to_open);
     ESP_LOGI(TAG2, "File create and written");
+
+    
     xTimerStart(read_from_adc_handle_id,0);
-}
-
-void append_data_sd_card(sdmmc_card_t *card, FILE *file_open, char *file_data_write,uint16_t value ,char mount_point[]){
-
-    ESP_LOGI(TAG2, "Opening file %s", file_data_write);
-    file_open = fopen(file_data_write, "a");
-    if (file_open == NULL) {
-        ESP_LOGE(TAG2, "Failed to open file for append");
-        return;
-    }
-    fprintf(file_open, "percentuale acqua: %d%% \n",value);
-    fclose(file_open);
-    ESP_LOGI(TAG2, "File written");
 }
 
 void read_sd_card(char *file_data_read, FILE *file_open){
