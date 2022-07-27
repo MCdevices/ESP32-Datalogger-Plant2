@@ -2,30 +2,25 @@
 /*<                  MCDEVICES                  >*/
 /*************************************************/
 /*<             AUTOMATED IRRIGATION            >*/
-/*<                version: 1.2.2               >*/               
+/*<                version: 1.2.3               >*/               
 /*************************************************/
 
 /*
 NOTE:
-    (1)utiliazzare un pin di uscira per pilotare un BJT,
-    avra la funzione di accendere il sensore solo nel
-    momento in cui si effettua la misurazione dell'
-    umidita, questo fa in modo che il sensore non si 
-    corrodi molto velocemente.
-
-    (2)Nel momento in cui l'umiduta del terreno scende sotto 
-    una soglia prestabilita verra effettuata l'irrigazione 
-    del terreno tramite la pompa.
-
-    (3)SEE: https://randomnerdtutorials.com/esp32-ntp-timezones-daylight-saving/,
+    (1)SEE: https://randomnerdtutorials.com/esp32-ntp-timezones-daylight-saving/,
     https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv
     for timezione
+*/
 
-    (4)inserire le librerie per scrivere il tempo e il giorno in cui viene 
-    effettuata l'irrigazione
-    (solo se l'umidita del terreno e scesa sotto ad una determinata soglia)
+/*
+TODO:
+    
+*/
 
-    (5)Ottimizzare la scrittura su uSD
+/*
+DONE:
+    (1) optimized writing on micro sd.
+    
 */
 
 #include "main.h"
@@ -119,7 +114,6 @@ static void sd_card_init(void){
         return;
     }
     ESP_LOGI(TAG, "Filesystem mounted");
-    //write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
 }
 
 void sdcard_spi_stop(void){
@@ -142,16 +136,14 @@ static void print_char_val_type(esp_adc_cal_value_t val_type)
 static void start_irrig(void *pvParameters){
     xTimerStop(read_from_adc_handle_id,0);
     printf("\n\nIRRIGATION STARTED!!! for: %dms\n\n",TIME_FOR_IRRIG);
-    gpio_set_level(RELAY_PIN,1);
+    gpio_set_level(LED_PIN,1);
     vTaskDelay(pdMS_TO_TICKS(TIME_FOR_IRRIG));
-    //write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
-    //sdcard_spi_stop(); //stackoverflow error
-    gpio_set_level(RELAY_PIN,0);
+    gpio_set_level(LED_PIN,0);
     xTimerStart(read_from_adc_handle_id,0);
 }
 
 static void adc_reading_thread(TimerHandle_t xTimer){
-    num_samp_from_sleep++;
+    num_samples++;
     //Configure ADC
     if (unit == ADC_UNIT_1) {
         adc1_config_width(width);
@@ -179,24 +171,24 @@ static void adc_reading_thread(TimerHandle_t xTimer){
     if (percentuale > 5 && percentuale < 35){
         start_irrig(NULL);
     }
-    if (num_samples >= NUM_MAX_SAMPLE){
-        num_samples = 0;
-        deep_sleep_mode(TIME_SLEEP); //for now 10s
-    }
-    printf("Numero campioni: %d",num_samples);
+
+    printf("Numero di wakeup: %d\n",num_samp_from_sleep);
     printf("Raw: %d\tVoltage: %dmV\n", adc_reading, voltage);
     printf("percentuale di acqua nel terreno: %d%%\n",percentuale);
-    append_data_sd_card(card,file,file_data,percentuale,MOUNT_POINT);
-    num_samples++;
+    write_sd_card(file,file_data,MOUNT_POINT,strftime_buf,percentuale,num_samples);
+
+    if (num_samples >= NUM_MAX_SAMPLE){
+        deep_sleep_mode(SLEEP_TIME_DEBUG); //for now 10s
+    }
 }
 
 static void create_timers(void){
     /*FREERTOS TIMER CREATE*/
-    read_from_adc_handle_id =       xTimerCreate("SCHED",                //Timer Name
-                                                pdMS_TO_TICKS(1000),    //Period in ticks
-                                                pdTRUE,                 //Auto reload
-                                                NULL,                   //timer ID
-                                                &adc_reading_thread);   //Callback Function
+    read_from_adc_handle_id =   xTimerCreate("SCHED",                //Timer Name
+                                            pdMS_TO_TICKS(60000),    //Period in ticks //1000, 60000 ==> for debug
+                                            pdTRUE,                 //Auto reload
+                                            NULL,                   //timer ID
+                                            &adc_reading_thread);   //Callback Function
     
     /* Error checking */
     if (NULL == read_from_adc_handle_id)
@@ -213,11 +205,10 @@ void app_main(void){
     pin_config();
     check_efuse();
     sd_card_init();
-    //Card has been initialized, print its properties
-    //sdmmc_card_print_info(stdout, card);
     get_time_date(NULL);
     create_timers();
-    write_sd_card(card,file,file_data,strftime_buf,MOUNT_POINT);
+    num_samp_from_sleep++;
+
     while (1) {
         vTaskDelay(5); //for watchdog timer only (WDT) 
     }
