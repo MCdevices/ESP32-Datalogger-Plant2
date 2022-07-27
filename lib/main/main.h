@@ -50,6 +50,7 @@
 #define LED_PIN                     21 //GPIO 21 on LilyGO/T8
 #define RELAY_PIN                   4   //GPIO 5
 #define SLEEP_TIME                  144*600 //144*600 = 86400 = 24H //il micro si risveglia ogni 24H
+#define SLEEP_TIME_DEBUG            300000 // 5 min for debug
 #define DEFAULT_VREF                1100        //Use adc2_vref_to_gpio() to obtain a better estimate
 #define NO_OF_SAMPLES               64          //Multisampling
 
@@ -60,13 +61,13 @@
 #define TIME_FOR_IRRIG              10000 //in ms
 
 //SLEEP MODE ON
-#define TIME_SLEEP                  10  //in sec
+#define TIME_SLEEP                  60  //in sec
 
 //WIFI
 #define EXAMPLE_WIFI_SSID           "😝"
 #define EXAMPLE_WIFI_PASS           "🤟"
 
-//SDCARD SPI
+//SDCARD SPI ESP32 T8
 #define MOUNT_POINT                 "/sdcard"
 #define SPI_DMA_CHAN                1
 #define PIN_NUM_MISO                2
